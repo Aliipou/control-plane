@@ -23,18 +23,23 @@ jobs:
   # (a PAT/deploy secret) is set on this repo; until then it is skipped, not red.
   integration:
     runs-on: ubuntu-latest
-    if: ${{ secrets.DEPLOY_TOKEN != '' }}
+    # `secrets` can't be used in a job-level `if`, so gate each step on an env var
+    # read from the secret. No token set -> steps skip -> job is a green no-op.
+    env:
+      T: ${{ secrets.DEPLOY_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - if: ${{ env.T != '' }}
+        uses: actions/checkout@v4
+      - if: ${{ env.T != '' }}
+        uses: actions/setup-python@v5
         with:
           python-version: "3.13"
       - name: Install pinned core packages (private, via credential)
-        env:
-          T: ${{ secrets.DEPLOY_TOKEN }}
+        if: ${{ env.T != '' }}
         run: |
           python -m pip install "decision-os-contracts @ git+https://x-access-token:${T}@github.com/Aliipou/contracts-spec.git@v0.2.0"
           python -m pip install "decision-kernel-core @ git+https://x-access-token:${T}@github.com/Aliipou/decision-kernel-core.git@v0.1.0"
           python -m pip install "pytest>=8.0" "ruff>=0.6" "mypy>=1.11"
       - name: Tests (router, executor, no-authority-leak, compat, boundaries)
+        if: ${{ env.T != '' }}
         run: python -m pytest -q
