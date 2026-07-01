@@ -1,0 +1,40 @@
+name: ci
+
+on: [push, pull_request]
+
+jobs:
+  # Always green, needs NO private dependencies: lint + the stdlib-only boundary
+  # checks (rule A: no research/agent imports; rule B: emits no Decision).
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install "ruff>=0.6"
+      - name: Lint (ruff)
+        run: ruff check control_plane tests
+      - name: Boundaries (rules A & B, dependency-free)
+        run: python -m pytest -q tests/test_boundaries.py
+
+  # Full integration: routes through the real kernel, verifies signatures, spends
+  # tokens. Needs read access to the private core repos. Runs once DEPLOY_TOKEN
+  # (a PAT/deploy secret) is set on this repo; until then it is skipped, not red.
+  integration:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.DEPLOY_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install pinned core packages (private, via credential)
+        env:
+          T: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          python -m pip install "decision-os-contracts @ git+https://x-access-token:${T}@github.com/Aliipou/contracts-spec.git@v0.2.0"
+          python -m pip install "decision-kernel-core @ git+https://x-access-token:${T}@github.com/Aliipou/decision-kernel-core.git@v0.1.0"
+          python -m pip install "pytest>=8.0" "ruff>=0.6" "mypy>=1.11"
+      - name: Tests (router, executor, no-authority-leak, compat, boundaries)
+        run: python -m pytest -q

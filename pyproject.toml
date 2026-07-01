@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "control-plane"
+version = "0.1.0"
+description = "The dumb, security-first orchestrator of the Decision OS: routes actions to the kernel, validates the kernel signature at runtime, enforces token-bound execution. Holds NO authority."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "PolyForm-Noncommercial-1.0.0" }
+authors = [{ name = "Ali Pourrahim" }]
+# Consumes the pinned core packages. Private repos -> CI needs a read credential
+# (see the repo README / contracts-spec INTEGRATION.md).
+dependencies = [
+  "decision-os-contracts @ git+https://github.com/Aliipou/contracts-spec.git@v0.2.0",
+  "decision-kernel-core @ git+https://github.com/Aliipou/decision-kernel-core.git@v0.1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.11"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["control_plane"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
