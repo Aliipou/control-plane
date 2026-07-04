@@ -23,6 +23,11 @@ dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.11"]
 [tool.hatch.build.targets.wheel]
 packages = ["control_plane"]
 
+# The core deps are pinned by git ref (see [project.dependencies]); hatchling
+# requires this opt-in to accept direct references as valid metadata.
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

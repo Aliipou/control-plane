@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from kernel import TokenStore, verify_authority
+from kernel import TokenStore, action_fingerprint, verify_authority
 
 
 class ExecutionRefused(RuntimeError):
@@ -39,6 +39,16 @@ class Executor:
         if not verify_authority(decision, signature, self._pub):
             raise ExecutionRefused("decision not authenticated by the kernel")
 
+        # Mandatory mediation: the signed decision authorizes a SPECIFIC action's
+        # content. Recompute the fingerprint from the action we were handed and
+        # refuse if it differs from what the kernel signed — otherwise a caller
+        # could re-attach a valid decision/token to a different (denied) action.
+        binding = action_fingerprint(action)
+        if decision.get("action_binding") != binding:
+            raise ExecutionRefused(
+                "action does not match the authorized decision (binding mismatch)"
+            )
+
         verdict = decision["verdict"]
         if verdict in ("DENY", "DEFER") or token is None:
             raise ExecutionRefused(f"verdict {verdict}: no execution")
@@ -49,6 +59,7 @@ class Executor:
             kernel_public_key_hex=self._pub,
             expected_action_ref=decision["action_ref"],
             expected_capability=capability,
+            expected_action_binding=binding,
         )
         if not ok:
             raise ExecutionRefused(f"token rejected: {why}")
