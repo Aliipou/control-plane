@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from kernel import TokenStore, action_fingerprint, verify_authority
+from kernel import SpentStore, TokenStore, action_fingerprint, verify_authority
 
 
 class ExecutionRefused(RuntimeError):
@@ -22,9 +22,17 @@ class ExecutionRefused(RuntimeError):
 
 
 class Executor:
-    def __init__(self, kernel_public_key: str) -> None:
+    def __init__(
+        self,
+        kernel_public_key: str,
+        *,
+        spent_store: SpentStore | None = None,
+    ) -> None:
         self._pub = kernel_public_key
-        self._tokens = TokenStore()
+        # HB-1: the TokenStore is durable and cross-process by default (see
+        # kernel.TokenStore). Pass ``spent_store=`` to share one across executors
+        # (multi-replica) or to opt in to InMemorySpentStore for single-process.
+        self._tokens = TokenStore(spent_store=spent_store)
 
     def execute(
         self,
@@ -47,6 +55,16 @@ class Executor:
         if decision.get("action_binding") != binding:
             raise ExecutionRefused(
                 "action does not match the authorized decision (binding mismatch)"
+            )
+
+        # W-1: the LIVE action's reference must equal the one the kernel signed.
+        # action_binding now folds action_ref/nonce in, but check it explicitly at
+        # the PEP so a decision minted for one action reference cannot authorize a
+        # different action object with the same security content.
+        live_ref = action.get("nonce") or action.get("action_ref") or ""
+        if live_ref != decision.get("action_ref", ""):
+            raise ExecutionRefused(
+                "action nonce/action_ref does not match the authorized decision"
             )
 
         verdict = decision["verdict"]
