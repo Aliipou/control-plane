@@ -1,5 +1,7 @@
 # control-plane — the dumb, security-first orchestrator
 
+**Live (graph):** [https://ali-control-plane.vercel.app](https://ali-control-plane.vercel.app)
+
 Routes actions through the Decision OS. It **decides nothing** — it holds no
 authority. Any decision logic here would be an authority leak.
 
